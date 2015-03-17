@@ -10,6 +10,7 @@ type RTMMessage interface {
 var rtmMessageTypeToObj = map[string]RTMMessage{
     "message":         &RTMChannelMessage{},
     "user_typing":     &RTMTypingMessage{},
+    "bot_added":       &RTMBotAddedMessage{},
     "team_join":       &RTMTeamJoinMessage{},
     "channel_created": &RTMChannelCreatedMessage{},
     "channel_joined":  &RTMChannelJoinedMessage{},
@@ -102,6 +103,28 @@ func (self *RTMTeamJoinMessage) GetRaw() []byte {
 }
 
 func (self *RTMTeamJoinMessage) Process(rtm *RTMProcessor) {
+    rtm.runHooks(self.Type, self)
+}
+
+/*
+** Bot added message
+*/
+type RTMBotAddedMessage struct {
+    raw       []byte    `json:"-"`
+
+    Type        string  `json:"type"`
+    Bot         *Bot    `json:"bot"`
+}
+
+func (self *RTMBotAddedMessage) SetRaw(data []byte) {
+    self.raw = data
+}
+
+func (self *RTMBotAddedMessage) GetRaw() []byte {
+    return self.raw
+}
+
+func (self *RTMBotAddedMessage) Process(rtm *RTMProcessor) {
     rtm.runHooks(self.Type, self)
 }
 

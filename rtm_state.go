@@ -181,6 +181,11 @@ func (self *DefaultStateManager) AddHooks(rtm *RTMProcessor) {
         self.addEntityFromUser(msg.User)
     })
 
+    rtm.addHook("bot_added", func(rtm *RTMProcessor, _msg RTMMessage) {
+        msg := _msg.(*RTMBotAddedMessage)
+        self.addEntityFromBot(msg.Bot)
+    })
+
     rtm.addHook("channel_created", func(rtm *RTMProcessor, _msg RTMMessage) {
         msg := _msg.(*RTMChannelCreatedMessage)
         // Make sure these are set
