@@ -79,48 +79,279 @@ type Channel struct {
 type Group struct {
 }
 
-type ImageAttachment struct {
+type Attachment struct {
+    Text            string            `json:"text"`
+    Id              int64             `json:"id"`
+
     Title           string            `json:"title"`
     TitleLink       string            `json:"title_link"`
+    FromURL         string            `json:"from_url"`
     ImageURL        string            `json:"image_url"`
     ImageWidth      int               `json:"image_width"`
     ImageHeight     int               `json:"image_height"`
     ImageBytes      int               `json:"image_bytes"`  
-}
 
-type TwitterAttachment struct {
-    Id              int               `json:"id"`
-    AuthorLink      string            `json:"author_link"`
     Pretext         string            `json:"pretext"`
     Fallback        string            `json:"fallback"`
+    AuthorLink      string            `json:"author_link"`
     AuthorName      string            `json:"author_name"`
     AuthorIcon      string            `json:"author_icon"`
     AuthorSubname   string            `json:"author_subname"`
-    ServerName      string            `json:"service_name"`
-}
-
-type Attachment struct {
-    Text            string            `json:"text"`
-                    *ImageAttachment
-                    *TwitterAttachment
-    /* ... */
+    ServiceName     string            `json:"service_name"`
+    ServiceURL      string            `json:"service_url"`
 }
 
 type MessageEditedInfo struct {
-    UserID          string            `json:"user"`
-    TimeStamp       string            `json:"ts"`
+    UserID             string                `json:"user"`
+    TS                 string                `json:"ts"`
+}
+
+type MessageBase struct {
+    // Pointer so we can tell if it were passed and not sent as 0 value
+    ReplyTo           *int64                 `json:"reply_to"`
+    Type               string                `json:"type"`
+    SubType            string                `json:"subtype"`
+
+    TS                 string                `json:"ts"`
+    UserID             string                `json:"user"`
+    ChannelID          string                `json:"channel"`
+    Text               string                `json:"text"`
+    Attachments      []Attachment            `json:"attachments"`
+    Edited            *MessageEditedInfo     `json:"edited"`
 }
 
 type Message struct {
-    TimeStamp       string            `json:"ts"`
-    UserID          string            `json:"user"`
-    ChannelID       string            `json:"channel"`
-    Text            string            `json:"text"`
-    SubType         string            `json:"subtype"`
-    SubMessage     *Message           `json:"message,omitempty"`
-    Attachments   []Attachment        `json:"attachments"`
-    Edited         *MessageEditedInfo `json:"edited"`
+    MessageBase
+
+    MeMessage         *MeMessageSubType      `json:"-"`
+    BotMessage        *BotMessageSubType     `json:"-"`
+    MessageDeleted    *MessageDeletedSubType `json:"-"`
+    MessageChanged    *MessageChangedSubType `json:"-"`
+    FileShared        *FileSharedSubType     `json:"-"`
+    ChannelJoin       *ChannelJoinSubType    `json:"-"`
+    ChannelLeave      *ChannelLeaveSubType   `json:"-"`
+    ChannelTopic      *ChannelTopicSubType   `json:"-"`
+    ChannelPurpose    *ChannelPurposeSubType `json:"-"`
+    ChannelRenamed    *ChannelRenamedSubType `json:"-"`
+    FileComment       *FileCommentSubType    `json:"-"`
 }
+
+func (self *Message) UnmarshalJSON(data []byte) (err error) {
+    var obj interface {}
+
+    if err = json.Unmarshal(data, &self.MessageBase); err != nil {
+        return err
+    }
+
+    switch self.SubType {
+        case "":
+            return nil
+        case "me_message":
+            self.MeMessage = &MeMessageSubType{}
+            obj = self.MeMessage
+        case "bot_message":
+            self.BotMessage = &BotMessageSubType{}
+            obj = self.BotMessage
+        case "message_deleted":
+            self.MessageDeleted = &MessageDeletedSubType{}
+            obj = self.MessageDeleted
+        case "message_changed":
+            self.MessageChanged = &MessageChangedSubType{}
+            obj = self.MessageChanged
+        case "file_share":
+            self.FileShared = &FileSharedSubType{}
+            obj = self.FileShared
+        case "channel_join":
+            self.ChannelJoin = &ChannelJoinSubType{}
+            obj = self.ChannelJoin
+        case "channel_leave":
+            self.ChannelLeave = &ChannelLeaveSubType{}
+            obj = self.ChannelLeave
+        case "channel_topic":
+            self.ChannelTopic = &ChannelTopicSubType{}
+            obj = self.ChannelTopic
+        case "channel_purpose":
+            self.ChannelPurpose = &ChannelPurposeSubType{}
+            obj = self.ChannelPurpose
+        case "channel_name":
+            self.ChannelRenamed = &ChannelRenamedSubType{}
+            obj = self.ChannelRenamed
+        case "file_comment":
+            self.FileComment = &FileCommentSubType{}
+            obj = self.FileComment
+        default:
+            // Unknown subtype
+            return
+    }
+
+    err = json.Unmarshal(data, obj)
+    return
+}
+
+/*
+** Start of Message SubTypes
+*/
+type BotMessageSubType     struct {
+    Type             string           `json:"type"`
+    SubType          string           `json:"subtype"`
+    BotID            string           `json:"bot_id"`
+    ChannelID        string           `json:"channel"`
+    Attachments   []Attachment        `json:"attachments"`
+    Text             string           `json:"text"`
+    TS               string           `json:"ts"`
+}
+
+type MeMessageSubType struct {
+    Type             string           `json:"type"`
+    SubType          string           `json:"subtype"`
+    UserID           string           `json:"user"`
+    ChannelID        string           `json:"channel"`
+    Text             string           `json:"text"`
+    TS               string           `json:"ts"`
+}
+
+type MessageChangedSubType struct {
+    Type             string           `json:"type"`
+    SubType          string           `json:"subtype"`
+    ChannelID        string           `json:"channel"`
+    Message         *Message          `json:"message"`
+    Hidden           bool             `json:"hidden"`
+    EventTS          string           `json:"event_ts"`
+    TS               string           `json:"ts"`
+}
+
+type MessageDeletedSubType struct {
+    Type             string           `json:"type"`
+    SubType          string           `json:"subtype"`
+    DeletedTS        string           `json:"deleted_ts"`
+    EventTS          string           `json:"event_ts"`
+    TS               string           `json:"ts"`
+    Hidden           bool             `json:"hidden"`
+    ChannelID        string           `json:"channel"`
+}
+
+type Comment struct {
+    ID                 string           `json:"id"`
+    Created            EpochTime        `json:"created"`
+    TimeStamp          EpochTime        `json:"timestamp"`
+    UserID             string           `json:"user"`
+    Comment            string           `json:"comment"`
+} 
+
+type SharedFile struct {
+    ID                 string           `json:"id"`
+    Created            EpochTime        `json:"created"`
+    TimeStamp          EpochTime        `json:"timestamp"`
+    Name               string           `json:"name"`
+    Title              string           `json:"title"`
+    MimeType           string           `json:"mimetype"`
+    FileType           string           `json:"filetype"`
+    PrettyType         string           `json:"pretty_type"`
+    UserID             string           `json:"user"`
+    Editable           bool             `json:"editable"`
+    Size               int64            `json:"size"`
+    Mode               string           `json:"mode"`
+    IsExternal         bool             `json:"is_external"`
+    ExternalType       string           `json:"external_type"`
+    IsPublic           bool             `json:"is_public"`
+    PublicURLShared    bool             `json:"public_url_shared"`
+    URL                string           `json:"url"`
+    URLDownload        string           `json:"url_download"`
+    URLPrivate         string           `json:"url_private"`
+    URLPrivateDownload string           `json:"url_private_download"`
+    Thumb64            string           `json:"thumb_64"`
+    Thumb80            string           `json:"thumb_80"`
+    Thumb160           string           `json:"thumb_160"`
+    Thumb360           string           `json:"thumb_360"`
+    Thumb360Width      int              `json:"thumb_360_w"`
+    Thumb360Height     int              `json:"thumb_360_h"`
+    Thumb720           string           `json:"thumb_720"`
+    Thumb720Width      int              `json:"thumb_720_w"`
+    Thumb720Height     int              `json:"thumb_720_h"`
+    Thumb1024          string           `json:"thumb_1024"`
+    Thumb1024Width     int              `json:"thumb_1024_w"`
+    Thumb1024Height    int              `json:"thumb_1024_h"`
+    ImageExifRotation  int              `json:"image_exif_rotation"`
+    Permalink          string           `json:"permalink"`
+    PermalinkPublic    string           `json:"permalink_public"`
+    ChannelIDs         []string         `json:"channels"`
+    GroupIDs           []string         `json:"groups"`
+    IMIDs              []string         `json:"ims"`
+    CommentsCount      int64            `json:"comments_count"`
+}
+
+// file_share
+type FileSharedSubType struct {
+    Type             string           `json:"type"`
+    SubType          string           `json:"subtype"`
+    Text             string           `json:"text"`
+    File            *SharedFile       `json:"file"`
+    UserID           string           `json:"user"`
+    Upload           bool             `json:"upload"`
+    ChannelID        string           `json:"channel"`
+    TS               string           `json:"ts"`
+}
+
+type ChannelJoinSubType struct {
+    Type             string           `json:"type"`
+    SubType          string           `json:"subtype"`
+    UserID           string           `json:"user"`
+    InviterID        string           `json:"inviter"`
+    ChannelID        string           `json:"channel"`
+    Text             string           `json:"text"`
+    TS               string           `json:"ts"`
+}
+
+type ChannelLeaveSubType struct {
+    Type             string           `json:"type"`
+    SubType          string           `json:"subtype"`
+    UserID           string           `json:"user"`
+    ChannelID        string           `json:"channel"`
+    Text             string           `json:"text"`
+    TS               string           `json:"ts"`
+}
+
+type ChannelTopicSubType struct {
+    Type             string           `json:"type"`
+    SubType          string           `json:"subtype"`
+    UserID           string           `json:"user"`
+    ChannelID        string           `json:"channel"`
+    Topic            string           `json:"topic"`
+    TS               string           `json:"ts"`
+}
+
+type ChannelPurposeSubType struct {
+    Type             string           `json:"type"`
+    SubType          string           `json:"subtype"`
+    UserID           string           `json:"user"`
+    ChannelID        string           `json:"channel"`
+    Purpose          string           `json:"topic"`
+    TS               string           `json:"ts"`
+}
+
+// channel_name
+type ChannelRenamedSubType struct {
+    Type             string           `json:"type"`
+    SubType          string           `json:"subtype"`
+    UserID           string           `json:"user"`
+    ChannelID        string           `json:"channel"`
+    OldName          string           `json:"old_name"`
+    Name             string           `json:"name"`
+    TS               string           `json:"ts"`
+}
+
+type FileCommentSubType struct {
+    Type             string           `json:"type"`
+    SubType          string           `json:"subtype"`
+    UserID           string           `json:"user"`
+    ChannelID        string           `json:"channel"`
+    File            *SharedFile       `json:"file"`
+    Comment         *Comment          `json:"comment"`
+    TS               string           `json:"ts"`
+}
+/*
+** End of Message SubTypes
+*/
 
 type TeamPrefs struct {
     AllowMessageDeletion bool      `json:"allow_message_deletion"`

@@ -1,5 +1,7 @@
 package slopher
 
+import "fmt"
+
 type RTMMessage interface {
     apiResponse
     Process(*RTMProcessor)
@@ -22,9 +24,7 @@ var rtmMessageTypeToObj = map[string]RTMMessage{
 type RTMChannelMessage struct {
     raw       []byte  `json:"-"`
 
-    Type      string  `json:"type"`
-    ReplyTo   *int    `json:"reply_to"`
-    *Message
+    Message
 }
 
 func (self *RTMChannelMessage) SetRaw(data []byte) {
@@ -40,7 +40,24 @@ func (self *RTMChannelMessage) Process(rtm *RTMProcessor) {
     if self.ReplyTo != nil {
         return
     }
-    rtm.runHooks(self.Type, self)
+
+    if self.SubType == "" || self.SubType == "bot_message" ||
+            self.SubType == "me_message" {
+        // Treat these all as channel messages.
+        if self.BotMessage != nil {
+            // Copy this... should already be set for other messages
+            self.UserID = self.BotMessage.BotID
+        }
+
+        rtm.runHooks("message", self)
+        return
+    }
+
+    // Handle subtypes :-/
+
+    fmt.Printf("Dropping subtyped message: %s %+v\n", self.raw, *self)
+
+    return
 }
 
 /*
