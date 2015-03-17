@@ -186,6 +186,20 @@ func (self *DefaultStateManager) AddHooks(rtm *RTMProcessor) {
         self.addEntityFromBot(msg.Bot)
     })
 
+    rtm.addHook("user_change", func(rtm *RTMProcessor, _msg RTMMessage) {
+        msg := _msg.(*RTMUserChangedMessage)
+
+        // Name might have changed, so find by ID first.
+        entity := self.FindEntity(msg.User.ID)
+
+        if entity != nil && entity.Name != msg.User.Name {
+            // Handle name change.
+            delete(self.EntitiesByName, entity.Name)
+            self.EntitiesByName[msg.User.Name] = entity
+        }
+        self.addEntityFromUser(msg.User)
+    })
+
     rtm.addHook("channel_created", func(rtm *RTMProcessor, _msg RTMMessage) {
         msg := _msg.(*RTMChannelCreatedMessage)
         // Make sure these are set

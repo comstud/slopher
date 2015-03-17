@@ -16,6 +16,7 @@ var rtmMessageTypeToObj = map[string]RTMMessage{
     "channel_joined":  &RTMChannelJoinedMessage{},
     "channel_left":    &RTMChannelLeftMessage{},
     "im_created":      &RTMIMCreatedMessage{},
+    "user_change":     &RTMUserChangedMessage{},
 }
 
 /*
@@ -214,5 +215,27 @@ func (self *RTMIMCreatedMessage) GetRaw() []byte {
 }
 
 func (self *RTMIMCreatedMessage) Process(rtm *RTMProcessor) {
+    rtm.runHooks(self.Type, self)
+}
+
+/*
+** User changed
+*/
+type RTMUserChangedMessage struct {
+    raw       []byte    `json:"-"`
+
+    Type        string  `json:"type"`
+    User        *User   `json:"user"`
+}
+
+func (self *RTMUserChangedMessage) SetRaw(data []byte) {
+    self.raw = data
+}
+
+func (self *RTMUserChangedMessage) GetRaw() []byte {
+    return self.raw
+}
+
+func (self *RTMUserChangedMessage) Process(rtm *RTMProcessor) {
     rtm.runHooks(self.Type, self)
 }
