@@ -1,166 +1,301 @@
 package slopher
 
 import (
-    "encoding/json"
-    "errors"
-    "fmt"
-    "io/ioutil"
-    "log"
-    "net/http"
+	"bytes"
+	"encoding/json"
+	//	"errors"
+	"fmt"
+	"golang.org/x/net/context"
+	"io/ioutil"
+	"log"
+	"mime/multipart"
+	"net/http"
+	//	"net/textproto"
+	//	"net/url"
+	"strings"
 )
 
+const DEFAULT_URI = "https://slack.com/api"
+
+type contextKeyType int
+
+var clientKey contextKeyType = 0
+var rtmProcessorKey contextKeyType = 1
+var rtmStateManagerKey contextKeyType = 2
+
 type Client struct {
-    Uri       string
-    AuthToken string
-    log       *log.Logger
+	Uri       string
+	AuthToken string
+	log       *log.Logger
+}
+
+type APIArgs map[string]string
+
+type rawJSONSupporter interface {
+	SetRaw(data []byte)
+	GetRaw() []byte
+}
+
+type rawJSON struct {
+	raw []byte `json:"-"`
+}
+
+func (self *rawJSON) SetRaw(data []byte) {
+	self.raw = data
+}
+
+func (self *rawJSON) GetRaw() []byte {
+	return self.raw
+}
+
+type baseAPIResponse struct {
+	rawJSON
+	Ok bool `json:"ok"`
 }
 
 func NewClient(uri string, auth_token string, logger *log.Logger) *Client {
-    return &Client{Uri: uri, AuthToken: auth_token, log: logger}
+	if uri == "" {
+		uri = DEFAULT_URI
+	}
+	return &Client{Uri: uri, AuthToken: auth_token, log: logger}
+}
+
+func (self *Client) NewContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, clientKey, self)
+}
+
+func ClientFromContext(ctx context.Context) (*Client, bool) {
+	u, ok := ctx.Value(clientKey).(*Client)
+	return u, ok
 }
 
 type RTMStartResponse struct {
-    raw           []byte     `json:"-"`
+	baseAPIResponse
 
-    Ok              bool     `json:"ok"`
-    WSUrl           string   `json:"url"`
-    CacheVersion    string   `json:"cache_version"`
-    LatestTimeStamp string   `json:"latest_event_ts"`
+	WSUrl           string `json:"url"`
+	CacheVersion    string `json:"cache_version"`
+	LatestTimeStamp string `json:"latest_event_ts"`
 
-    Self           *Self     `json:"self,omitempty"`
-    Bots          []*Bot     `json:"bots"`
-    Users         []*User    `json:"users"`
-    Channels      []*Channel `json:"channels"`
-    IMs           []*Channel `json:"ims"`
-    Groups        []*Group   `json:"groups"`
-    Team           *Team     `json:"team"`
+	Self     *Self      `json:"self,omitempty"`
+	Bots     []*Bot     `json:"bots"`
+	Users    []*User    `json:"users"`
+	Channels []*Channel `json:"channels"`
+	IMs      []*Channel `json:"ims"`
+	Groups   []*Group   `json:"groups"`
+	Team     *Team      `json:"team"`
 }
 
-func (self *Client) RTMStart() (*RTMStartResponse, error) {
-    rtm_resp := &RTMStartResponse{}
+func (self *Client) RTMStart(ctx context.Context) (*RTMStartResponse, error) {
+	rtm_resp := &RTMStartResponse{}
 
-    if err := self.apiCall("rtm.start", apiArgs{}, rtm_resp); err != nil {
-        return nil, err
-    }
+	if err := self.apiCall(ctx, "rtm.start", nil, rtm_resp); err != nil {
+		return nil, err
+	}
 
-    return rtm_resp, nil
-}
-
-func (self *Client) NewRTMProcessor(config *RTMConfig) (*RTMProcessor, error) {
-    rtm_resp, err := self.RTMStart()
-    if err != nil {
-        return nil, err
-    }
-
-    if !rtm_resp.Ok {
-        return nil, errors.New("Received !Ok response")
-    }
-
-    if rtm_resp.WSUrl == "" {
-        return nil, errors.New("Websocket URL is empty")
-    }
-
-    rtm := &RTMProcessor{
-        Client:    self,
-        RTMConfig: config,
-        WSUrl:     rtm_resp.WSUrl,
-        doneChan:  make(chan int, 1),
-        seq_id:    1,
-    }
-
-    rtm.initHooks()
-    rtm.StateManager.RTMStart(rtm, rtm_resp)
-
-    return rtm, nil
+	return rtm_resp, nil
 }
 
 type JoinChannelResponse struct {
-    raw     []byte   `json:"-"`
+	baseAPIResponse
 
-    Ok       bool    `json:"ok"`
-    Channel *Channel `json:"channel"`
+	Channel *Channel `json:"channel"`
 }
 
-func (self *JoinChannelResponse) SetRaw(data []byte) {
-    self.raw = data
-}
+func (self *Client) JoinChannel(ctx context.Context, name string) (*JoinChannelResponse, error) {
+	resp := &JoinChannelResponse{}
+	apiargs := APIArgs{"name": name}
 
-func (self *JoinChannelResponse) GetRaw() []byte {
-    return self.raw
-}
+	err := self.apiCall(ctx, "channels.join", apiargs, resp)
+	if err != nil {
+		return nil, err
+	}
 
-func (self *Client) JoinChannel(name string) (*JoinChannelResponse, error) {
-    resp := &JoinChannelResponse{}
-    err := self.apiCall("channels.join", apiArgs{"name": name}, resp)
-    if err != nil {
-        return nil, err
-    }
-
-    return resp, nil
+	return resp, nil
 }
 
 type LeaveChannelResponse struct {
-    raw     []byte   `json:"-"`
-
-    Ok       bool    `json:"ok"`
-    /* Returns other keys on error */
+	baseAPIResponse
 }
 
-func (self *LeaveChannelResponse) SetRaw(data []byte) {
-    self.raw = data
+func (self *Client) LeaveChannel(ctx context.Context, id string) (*LeaveChannelResponse, error) {
+	resp := &LeaveChannelResponse{}
+	apiargs := APIArgs{"channel": id}
+
+	err := self.apiCall(ctx, "channels.leave", apiargs, resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
 
-func (self *LeaveChannelResponse) GetRaw() []byte {
-    return self.raw
+type PostChatMessageResponse struct {
+	baseAPIResponse
+
+	TS        string   `json:"ts"`
+	ChannelID string   `json:"channel"`
+	Message   *Message `json:"message"`
 }
 
-func (self *Client) LeaveChannel(id string) (*LeaveChannelResponse, error) {
-    resp := &LeaveChannelResponse{}
-    err := self.apiCall("channels.leave", apiArgs{"channel": id}, resp)
-    if err != nil {
-        return nil, err
-    }
+func (self *Client) PostChatMessage(ctx context.Context, args APIArgs, attachments []Attachment) (*PostChatMessageResponse, error) {
+	resp := &PostChatMessageResponse{}
 
-    return resp, nil
+	if args == nil {
+		args = APIArgs{}
+	}
+
+	if attachments != nil && len(attachments) > 0 {
+		a, err := json.Marshal(attachments)
+		if err != nil {
+			return nil, err
+		}
+		args["attachments"] = string(a)
+	}
+
+	err := self.apiCall(ctx, "chat.postMessage", args, resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+type UploadFileResponse struct {
+	baseAPIResponse
+
+	File *SharedFile `json:"file"`
+	/* Returns other keys on error */
+}
+
+func (self *Client) UploadFile(ctx context.Context, filename, content, filetype, title string, channels []string) (*UploadFileResponse, error) {
+	resp := &UploadFileResponse{}
+
+	args := APIArgs{
+		"_filename":      filename,
+		"_file_contents": content,
+		"title":          title,
+		"filetype":       filetype,
+	}
+
+	if channels != nil {
+		args["channels"] = strings.Join(channels, ",")
+	}
+
+	err := self.apiCall(ctx, "files.upload", args, resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+type IMListResponse struct {
+	baseAPIResponse
+
+	IMs []Channel `json:"ims"`
+}
+
+func (self *Client) IMList(ctx context.Context) (*IMListResponse, error) {
+	resp := &IMListResponse{}
+
+	err := self.apiCall(ctx, "im.list", nil, resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 // Private methods
-type apiArgs map[string]string
-type apiResponse interface {
-    SetRaw([]byte)
-    GetRaw() []byte
+func (self *Client) apiCall(ctx context.Context, method string, args APIArgs, apiresp rawJSONSupporter) error {
+	full_uri := self.Uri + fmt.Sprintf("/%s?token=%s", method, self.AuthToken)
+
+	self.log.Printf("apiCall(%s) sending: %+v\n", method, args)
+
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+
+	if filename, ok := args["_filename"]; ok {
+		contents := args["_file_contents"]
+
+		/*
+			var qE = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
+				h := make(textproto.MIMEHeader)
+				h.Set("Content-Disposition",
+					fmt.Sprintf(`form-data; name="file"; filename="%s"`,
+						qE.Replace(filename[0])))
+				h.Set("Content-Type", "text/html")
+
+				fw, err := w.CreatePart(h)
+		*/
+		fw, err := w.CreateFormFile("file", filename)
+		if err != nil {
+			return err
+		}
+
+		if _, err := fw.Write([]byte(contents)); err != nil {
+			return err
+		}
+		delete(args, "_filename")
+		delete(args, "_file_contents")
+	}
+
+	for k, v := range args {
+		ff, err := w.CreateFormField(k)
+		if err != nil {
+			return err
+		}
+		if _, err := ff.Write([]byte(v)); err != nil {
+			return err
+		}
+	}
+
+	w.Close()
+
+	req, err := http.NewRequest("POST", full_uri, &b)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", w.FormDataContentType())
+
+	tr := &http.Transport{}
+	client := &http.Client{Transport: tr}
+
+	var body []byte
+
+	errch := make(chan error, 1)
+
+	go func() {
+		resp, err := client.Do(req)
+		if err != nil {
+			errch <- err
+			return
+		}
+
+		defer resp.Body.Close()
+
+		body, err = ioutil.ReadAll(resp.Body)
+		errch <- err
+	}()
+
+	select {
+	case <-ctx.Done():
+		tr.CancelRequest(req)
+		<-errch
+		return ctx.Err()
+	case err := <-errch:
+		if err != nil {
+			return err
+		}
+	}
+
+	self.log.Printf("apiCall(%s) response: %s\n", method, body)
+
+	if err := json.Unmarshal(body, apiresp); err != nil {
+		return err
+	}
+
+	apiresp.SetRaw(body)
+	return nil
 }
-
-
-func (self *Client) apiCall(method string, args apiArgs, apiresp apiResponse) error {
-    if self.Uri == "" {
-        self.Uri = "https://slack.com/api"
-    }
-
-    // FIXME: Don't manually generate this!
-    full_uri := self.Uri + fmt.Sprintf("/%s?token=%s", method, self.AuthToken)
-    for k, v := range(args) {
-        full_uri += fmt.Sprintf("&%s=%s", k, v)
-    }
-
-    resp, err := http.Get(full_uri)
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
-
-    body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        return err
-    }
-
-    self.log.Printf("apiCall(%s) response: %s\n", method, body)
-
-    if err := json.Unmarshal(body, apiresp); err != nil {
-        return err
-    }
-
-    apiresp.SetRaw(body)
-    return nil
-}
-
