@@ -24,6 +24,8 @@ var rtmProcessorKey contextKeyType = 1
 var rtmStateManagerKey contextKeyType = 2
 
 type Client struct {
+	transport *http.Transport
+	client    *http.Client
 	Uri       string
 	AuthToken string
 	log       *log.Logger
@@ -57,7 +59,14 @@ func NewClient(uri string, auth_token string, logger *log.Logger) *Client {
 	if uri == "" {
 		uri = DEFAULT_URI
 	}
-	return &Client{Uri: uri, AuthToken: auth_token, log: logger}
+	tr := &http.Transport{}
+	return &Client{
+		transport: tr,
+		client:    &http.Client{Transport: tr},
+		Uri:       uri,
+		AuthToken: auth_token,
+		log:       logger,
+	}
 }
 
 func (self *Client) NewContext(ctx context.Context) context.Context {
@@ -259,15 +268,12 @@ func (self *Client) apiCall(ctx context.Context, method string, args APIArgs, ap
 
 	req.Header.Set("Content-Type", w.FormDataContentType())
 
-	tr := &http.Transport{}
-	client := &http.Client{Transport: tr}
-
 	var body []byte
 
 	errch := make(chan error, 1)
 
 	go func() {
-		resp, err := client.Do(req)
+		resp, err := self.client.Do(req)
 		if err != nil {
 			errch <- err
 			return
@@ -281,7 +287,7 @@ func (self *Client) apiCall(ctx context.Context, method string, args APIArgs, ap
 
 	select {
 	case <-ctx.Done():
-		tr.CancelRequest(req)
+		self.transport.CancelRequest(req)
 		<-errch
 		return ctx.Err()
 	case err := <-errch:
