@@ -254,7 +254,11 @@ func (self *RTMProcessor) Start(ctx context.Context) error {
 				continue
 			}
 
-			self.processMessage(ctx, msgtype, data)
+			go func() {
+				ctx, cancel := context.WithCancel(ctx)
+				defer cancel()
+				self.processMessage(ctx, msgtype, data)
+			}()
 		}
 		self.Running = false
 		if self.ws != nil {
