@@ -107,6 +107,9 @@ func (self *RTMProcessor) initHooks(ctx context.Context) error {
 	for mtype, _ := range rtmMessageTypeToObj {
 		self.hooks[mtype] = make([]RTMHook, 0)
 	}
+	for _, mtype := range rtmMessageSubTypeHooks {
+		self.hooks[mtype] = make([]RTMHook, 0)
+	}
 	return state_mgr.AddHooks(ctx)
 }
 
@@ -301,6 +304,10 @@ func (self *RTMProcessor) addHook(name string, fn RTMHook) {
 
 func (self *RTMProcessor) OnChannelMessage(fn RTMHook) {
 	self.addHook("message", fn)
+}
+
+func (self *RTMProcessor) OnChannelMessageChanged(fn RTMHook) {
+	self.addHook("message_changed", fn)
 }
 
 func (self *RTMProcessor) OnTyping(fn RTMHook) {

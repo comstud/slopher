@@ -22,6 +22,10 @@ var rtmMessageTypeToObj = map[string]RTMMessage{
 	"user_change":     &RTMUserChangedMessage{},
 }
 
+var rtmMessageSubTypeHooks = []string{
+	"message_changed",
+}
+
 /*
 ** Channel message
  */
@@ -51,6 +55,10 @@ func (self *RTMChannelMessage) Process(ctx context.Context) {
 	}
 
 	// Handle subtypes :-/
+	if self.SubType == "message_changed" {
+		runRTMHooks(ctx, "message_changed", self)
+		return
+	}
 
 	fmt.Printf("Dropping subtyped message: %s %+v\n", self.raw, *self)
 
