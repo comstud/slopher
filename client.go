@@ -215,6 +215,29 @@ func (self *Client) IMList(ctx context.Context) (*IMListResponse, error) {
 	return resp, nil
 }
 
+type ChatDeleteResponse struct {
+	baseAPIResponse
+
+	ChannelID string `json:"channel"`
+	TS        string `json:"ts"`
+}
+
+func (self *Client) ChatDelete(ctx context.Context, channel_id, ts string) (*ChatDeleteResponse, error) {
+	resp := &ChatDeleteResponse{}
+
+	args := APIArgs{
+		"channel": channel_id,
+		"ts":      ts,
+	}
+
+	err := self.apiCall(ctx, "chat.delete", args, resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
 // Private methods
 func (self *Client) apiCall(ctx context.Context, method string, args APIArgs, apiresp rawJSONSupporter) error {
 	full_uri := self.Uri + fmt.Sprintf("/%s?token=%s", method, self.AuthToken)
