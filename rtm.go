@@ -258,8 +258,6 @@ func (self *RTMProcessor) Start(ctx context.Context) error {
 			}
 
 			go func() {
-				ctx, cancel := context.WithCancel(ctx)
-				defer cancel()
 				self.processMessage(ctx, msgtype, data)
 			}()
 		}
