@@ -3,15 +3,12 @@ package slopher
 import (
 	"bytes"
 	"encoding/json"
-	//	"errors"
 	"fmt"
 	"golang.org/x/net/context"
 	"io/ioutil"
 	"log"
 	"mime/multipart"
 	"net/http"
-	//	"net/textproto"
-	//	"net/url"
 	"strings"
 )
 
@@ -249,17 +246,6 @@ func (self *Client) apiCall(ctx context.Context, method string, args APIArgs, ap
 
 	if filename, ok := args["_filename"]; ok {
 		contents := args["_file_contents"]
-
-		/*
-			var qE = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
-				h := make(textproto.MIMEHeader)
-				h.Set("Content-Disposition",
-					fmt.Sprintf(`form-data; name="file"; filename="%s"`,
-						qE.Replace(filename[0])))
-				h.Set("Content-Type", "text/html")
-
-				fw, err := w.CreatePart(h)
-		*/
 		fw, err := w.CreateFormFile("file", filename)
 		if err != nil {
 			return err
