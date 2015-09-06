@@ -50,33 +50,52 @@ type ChannelPurpose struct {
 	Value   string    `json:"value"`
 }
 
-// Used for both 'channel' and 'im' json objects.
 type Channel struct {
+	Created            EpochTime       `json:"created"`
+	Creator            string          `json:"creator"`
+	ID                 string          `json:"id"`
+	IsArchived         bool            `json:"is_archived"`
+	IsChannel          bool            `json:"is_channel"`
+	IsGeneral          bool            `json:"is_general"`
+	IsMember           bool            `json:"is_member"`
+	LastRead           string          `json:"last_read"`
+	Latest             *Message        `json:"latest,omitempty"`
+	Members            []string        `json:"members"`
+	Name               string          `json:"name"`
+	Purpose            *ChannelPurpose `json:"purpose,omitempty"`
+	Topic              *ChannelTopic   `json:"topic,omitempty"`
+	UnreadCount        uint            `json:"unread_count"`
+	UnreadCountDisplay uint            `json:"unread_count_display"`
+}
+
+type Group struct {
+	Created            EpochTime       `json:"created"`
+	Creator            string          `json:"creator"`
+	HasPins            bool            `json:"has_pins"`
+	ID                 string          `json:"id"`
+	IsArchived         bool            `json:"is_archived"`
+	IsGroup            bool            `json:"is_group"`
+	IsOpen             bool            `json:"is_open"`
+	LastRead           string          `json:"last_read"`
+	Latest             *Message        `json:"latest,omitempty"`
+	Members            []string        `json:"members"`
+	Name               string          `json:"name"`
+	Purpose            *ChannelPurpose `json:"purpose,omitempty"`
+	Topic              *ChannelTopic   `json:"topic,omitempty"`
+	UnreadCount        uint            `json:"unread_count"`
+	UnreadCountDisplay uint            `json:"unread_count_display"`
+}
+
+type IM struct {
 	Created            EpochTime `json:"created"`
 	ID                 string    `json:"id"`
+	IsIM               bool      `json:"is_im"`
+	IsOpen             bool      `json:"is_open"`
 	LastRead           string    `json:"last_read"`
 	Latest             *Message  `json:"latest,omitempty"`
 	UnreadCount        uint      `json:"unread_count"`
 	UnreadCountDisplay uint      `json:"unread_count_display"`
-
-	// Attributes returned in "channel" from rtm.start
-	Creator    string          `json:"creator"`
-	IsArchived bool            `json:"is_archived"`
-	IsChannel  bool            `json:"is_channel"`
-	IsGeneral  bool            `json:"is_general"`
-	IsMember   bool            `json:"is_member"`
-	Name       string          `json:"name"`
-	Members    []string        `json:"members"`
-	Purpose    *ChannelPurpose `json:"purpose,omitempty"`
-	Topic      *ChannelTopic   `json:"topic,omitempty"`
-
-	// Attributes returned in "im" from rtm.start
-	UserID string `json:"user"`
-	IsIM   bool   `json:"is_im"`
-	IsOpen bool   `json:"is_open"`
-}
-
-type Group struct {
+	UserID             string    `json:"user"`
 }
 
 type AttachmentField struct {

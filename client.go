@@ -86,7 +86,7 @@ type RTMStartResponse struct {
 	Bots     []*Bot     `json:"bots"`
 	Users    []*User    `json:"users"`
 	Channels []*Channel `json:"channels"`
-	IMs      []*Channel `json:"ims"`
+	IMs      []*IM      `json:"ims"`
 	Groups   []*Group   `json:"groups"`
 	Team     *Team      `json:"team"`
 }

@@ -18,6 +18,7 @@ var rtmMessageTypeToObj = map[string]RTMMessage{
 	"channel_created": &RTMChannelCreatedMessage{},
 	"channel_joined":  &RTMChannelJoinedMessage{},
 	"channel_left":    &RTMChannelLeftMessage{},
+	"group_joined":    &RTMGroupJoinedMessage{},
 	"im_created":      &RTMIMCreatedMessage{},
 	"user_change":     &RTMUserChangedMessage{},
 }
@@ -159,14 +160,28 @@ func (self *RTMChannelLeftMessage) Process(ctx context.Context) {
 }
 
 /*
+** Group joined
+ */
+type RTMGroupJoinedMessage struct {
+	rawJSON
+
+	Type  string `json:"type"`
+	Group *Group `json:"channel"`
+}
+
+func (self *RTMGroupJoinedMessage) Process(ctx context.Context) {
+	runRTMHooks(ctx, self.Type, self)
+}
+
+/*
 ** IM created
  */
 type RTMIMCreatedMessage struct {
 	rawJSON
 
-	Type    string   `json:"type"`
-	UserID  string   `json:"user"`
-	Channel *Channel `json:"channel"`
+	Type   string `json:"type"`
+	UserID string `json:"user"`
+	IM     *IM    `json:"channel"`
 }
 
 func (self *RTMIMCreatedMessage) Process(ctx context.Context) {

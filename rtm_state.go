@@ -37,9 +37,14 @@ func (self *Entity) delPlace(place *Place) *Place {
 }
 
 type Place struct {
-	ID   string
-	Name string // Name of target user or channel name prefixed with "#"
+	ID        string
+	Name      string // Name of target user or channel name prefixed with "#"
+	IsChannel bool
+	IsIM      bool
+	IsGroup   bool
 	*Channel
+	*Group
+	*IM
 }
 
 func (self *Place) SendMessageString(ctx context.Context, s string) error {
@@ -85,7 +90,7 @@ type StateManager struct {
 	Bots     []*Bot
 	Users    []*User
 	Channels []*Channel
-	IMs      []*Channel
+	IMs      []*IM
 	Groups   []*Group
 
 	EntitiesByID   map[string]*Entity
@@ -154,36 +159,54 @@ func (self *StateManager) addEntityFromBot(bot *Bot) *Entity {
 func (self *StateManager) addPlace(place *Place) *Place {
 	self.PlacesByID[place.ID] = place
 	self.PlacesByName[place.Name] = place
+
+	members := make([]string, 0)
+
 	if place.Channel != nil {
-		for _, user_id := range place.Members {
-			entity := self.FindEntity(user_id)
-			if entity != nil {
-				entity.addPlace(place)
-			}
+		members = place.Channel.Members
+	} else if place.Group != nil {
+		members = place.Group.Members
+	}
+
+	for _, user_id := range members {
+		if entity := self.FindEntity(user_id); entity != nil {
+			entity.addPlace(place)
 		}
 	}
 	return place
 }
 
 func (self *StateManager) addPlaceFromChannel(channel *Channel) *Place {
-	name := channel.Name
-	if channel.IsChannel {
-		name = "#" + name
-	} else if channel.IsIM {
-		entity := self.FindEntity(channel.UserID)
-		if entity == nil {
-			name = channel.UserID
-		} else {
-			name = entity.Name
-		}
-	} else {
-		name = channel.ID
-	}
-
 	return self.addPlace(&Place{
-		ID:      channel.ID,
-		Name:    name,
-		Channel: channel,
+		ID:        channel.ID,
+		Name:      "#" + channel.Name,
+		Channel:   channel,
+		IsChannel: true,
+	})
+}
+
+func (self *StateManager) addPlaceFromGroup(group *Group) *Place {
+	return self.addPlace(&Place{
+		ID:      group.ID,
+		Name:    "#" + group.Name,
+		Group:   group,
+		IsGroup: true,
+	})
+}
+
+func (self *StateManager) addPlaceFromIM(im *IM) *Place {
+	var name string
+	// We want to use the User's name for the name of Place, if it exists.
+	if entity := self.FindEntity(im.UserID); entity != nil {
+		name = entity.Name
+	} else {
+		name = im.UserID
+	}
+	return self.addPlace(&Place{
+		ID:   im.ID,
+		Name: name,
+		IM:   im,
+		IsIM: true,
 	})
 }
 
@@ -243,9 +266,16 @@ func (self *StateManager) AddHooks(ctx context.Context) error {
 	rtm.addHook("im_created", func(ctx context.Context, _msg RTMMessage) {
 		msg := _msg.(*RTMIMCreatedMessage)
 		// Make sure these are set
-		msg.Channel.IsIM = true
-		msg.Channel.UserID = msg.UserID
-		self.addPlaceFromChannel(msg.Channel)
+		msg.IM.IsIM = true
+		msg.IM.UserID = msg.UserID
+		self.addPlaceFromIM(msg.IM)
+	})
+
+	rtm.addHook("group_joined", func(ctx context.Context, _msg RTMMessage) {
+		msg := _msg.(*RTMGroupJoinedMessage)
+		// Make sure this is set
+		msg.Group.IsGroup = true
+		self.addPlaceFromGroup(msg.Group)
 	})
 
 	return nil
@@ -278,8 +308,11 @@ func (self *StateManager) RTMStart(ctx context.Context, resp *RTMStartResponse) 
 	for _, channel := range self.Channels {
 		self.addPlaceFromChannel(channel)
 	}
-	for _, channel := range self.IMs {
-		self.addPlaceFromChannel(channel)
+	for _, im := range self.IMs {
+		self.addPlaceFromIM(im)
+	}
+	for _, group := range self.Groups {
+		self.addPlaceFromGroup(group)
 	}
 
 	return nil
