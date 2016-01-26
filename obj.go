@@ -108,10 +108,16 @@ type Attachment struct {
 	Text string `json:"text,omitempty"`
 	Id   int64  `json:"id,omitempty"`
 
+	// Valid values for mrkdwn_in are: ["pretext", "text", "fields"].
+	// Setting "fields" will enable markup formatting for the value of
+	// each field.
+	MarkDownIn []string `json:"mrkdwn_in,omitempty"`
+
 	Title       string `json:"title,omitempty"`
 	TitleLink   string `json:"title_link,omitempty"`
 	FromURL     string `json:"from_url,omitempty"`
 	ImageURL    string `json:"image_url,omitempty"`
+	ThumbURL    string `json:"thumb_url,omitempty"`
 	ImageWidth  int    `json:"image_width,omitempty"`
 	ImageHeight int    `json:"image_height,omitempty"`
 	ImageBytes  int    `json:"image_bytes,omitempty"`

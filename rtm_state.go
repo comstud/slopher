@@ -2,6 +2,7 @@ package slopher
 
 import (
 	"errors"
+
 	"golang.org/x/net/context"
 )
 
@@ -24,6 +25,15 @@ func (self *Entity) IsBot() bool {
 
 func (self *Entity) IsSelf() bool {
 	return self.Self != nil
+}
+
+func (self *Entity) GetID() string {
+	if self.IsBot() {
+		return self.Bot.ID
+	} else if self.IsSelf() {
+		return self.Self.ID
+	}
+	return self.User.ID
 }
 
 func (self *Entity) addPlace(place *Place) *Place {
