@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"golang.org/x/net/context"
 	"log"
 	"net/http"
 	"reflect"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"golang.org/x/net/context"
 )
 
 var WSMessageTypeToName = map[int]string{
@@ -70,7 +71,7 @@ func NewRTMProcessor(ctx context.Context) (*RTMProcessor, error) {
 	}
 
 	if !rtm_resp.Ok {
-		return nil, errors.New("Received !Ok response")
+		return nil, fmt.Errorf("Received !Ok response: %s", string(rtm_resp.raw))
 	}
 
 	if rtm_resp.WSUrl == "" {

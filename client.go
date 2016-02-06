@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/context"
 	"io/ioutil"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"strings"
+
+	"golang.org/x/net/context"
 )
 
 const DEFAULT_URI = "https://slack.com/api"
@@ -237,7 +238,7 @@ func (self *Client) ChatDelete(ctx context.Context, channel_id, ts string) (*Cha
 
 // Private methods
 func (self *Client) apiCall(ctx context.Context, method string, args APIArgs, apiresp rawJSONSupporter) error {
-	full_uri := self.Uri + fmt.Sprintf("/%s?token=%s", method, self.AuthToken)
+	full_uri := self.Uri + fmt.Sprintf("/%s", method)
 
 	self.log.Printf("apiCall(%s) sending: %+v\n", method, args)
 
@@ -266,6 +267,15 @@ func (self *Client) apiCall(ctx context.Context, method string, args APIArgs, ap
 		if _, err := ff.Write([]byte(v)); err != nil {
 			return err
 		}
+	}
+
+	// Add token
+	ff, err := w.CreateFormField("token")
+	if err != nil {
+		return err
+	}
+	if _, err := ff.Write([]byte(self.AuthToken)); err != nil {
+		return err
 	}
 
 	w.Close()
