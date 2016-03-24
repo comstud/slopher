@@ -28,9 +28,9 @@ func (self *Entity) IsSelf() bool {
 }
 
 func (self *Entity) GetID() string {
-	if self.IsBot() {
+	if self.Bot != nil {
 		return self.Bot.ID
-	} else if self.IsSelf() {
+	} else if self.Self != nil {
 		return self.Self.ID
 	}
 	return self.User.ID
